@@ -1,0 +1,170 @@
+# This policy allows you to define a list of forbidden IAM policy statement actions
+# to prevent Terraform from creating.   Put all statements in the forbidden_actions.
+# This does not do by-resource level restrictions, but restricts all resources with 
+# these actions
+
+import "json"
+import "tfplan"
+import "strings"
+import "types"
+
+violations_found=0
+forbidden_actions = [
+        "*",
+        "iam:AddClientIDToOpenIDConnectProvider",
+        "iam:AddRoleToInstanceProfile",
+        "iam:AddUserToGroup",
+        "iam:AttachGroupPolicy",
+        "iam:AttachRolePolicy",
+        "iam:AttachUserPolicy",
+        "iam:CreateAccountAlias",
+        "iam:CreateGroup",
+        "iam:CreateInstanceProfile",
+        "iam:CreateOpenIDConnectProvider",
+        "iam:CreatePolicy",
+        "iam:CreatePolicyVersion",
+        "iam:CreateRole",
+        "iam:CreateSAMLProvider",
+        "iam:CreateServiceLinkedRole",
+        "iam:CreateServiceSpecificCredential",
+        "iam:CreateUser",
+        "iam:DeleteAccountAlias",
+        "iam:DeleteAccountPasswordPolicy",
+        "iam:DeleteGroup",
+        "iam:DeleteGroupPolicy",
+        "iam:DeleteInstanceProfile",
+        "iam:DeleteOpenIDConnectProvider",
+        "iam:DeletePolicy",
+        "iam:DeletePolicyVersion",
+        "iam:DeleteRole",
+        "iam:DeleteRolePermissionsBoundary",
+        "iam:DeleteRolePolicy",
+        "iam:DeleteSAMLProvider",
+        "iam:DeleteSSHPublicKey",
+        "iam:DeleteServerCertificate",
+        "iam:DeleteServiceLinkedRole",
+        "iam:DeleteServiceSpecificCredential",
+        "iam:DeleteSigningCertificate",
+        "iam:DeleteUser",
+        "iam:DeleteUserPermissionsBoundary",
+        "iam:DeleteUserPolicy",
+        "iam:DetachGroupPolicy",
+        "iam:DetachRolePolicy",
+        "iam:DetachUserPolicy",
+        "iam:GenerateCredentialReport",
+        "iam:GenerateOrganizationsAccessReport",
+        "iam:GenerateServiceLastAccessedDetails",
+        "iam:PutGroupPolicy",
+        "iam:PutRolePermissionsBoundary",
+        "iam:PutRolePolicy",
+        "iam:PutUserPermissionsBoundary",
+        "iam:PutUserPolicy",
+        "iam:RemoveClientIDFromOpenIDConnectProvider",
+        "iam:RemoveRoleFromInstanceProfile",
+        "iam:RemoveUserFromGroup",
+        "iam:ResetServiceSpecificCredential",
+        "iam:SetDefaultPolicyVersion",
+        "iam:SetSecurityTokenServicePreferences",
+        "iam:SimulateCustomPolicy",
+        "iam:SimulatePrincipalPolicy",
+        "iam:UpdateAccountPasswordPolicy",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:UpdateGroup",
+        "iam:UpdateOpenIDConnectProviderThumbprint",
+        "iam:UpdateRole",
+        "iam:UpdateRoleDescription",
+        "iam:UpdateSAMLProvider",
+        "iam:UpdateSSHPublicKey",
+        "iam:UpdateServiceSpecificCredential",
+        "iam:UpdateSigningCertificate",
+        "iam:UpdateUser",
+        "iam:UploadServerCertificate",
+        "iam:UploadSigningCertificate",
+		"ec2:AuthorizeSecurityGroupEgress",
+		"ec2:AuthorizeSecurityGroupIngress",
+		"ec2:CreateSecurityGroup",
+		"ec2:DeleteSecurityGroup",
+		"ec2:RevokeSecurityGroupEgress",
+		"ec2:RevokeSecurityGroupIngress",
+		"ec2:UpdateSecurityGroupRuleDescriptionsEgress",
+		"ec2:UpdateSecurityGroupRuleDescriptionsIngress",
+		"ec2:AcceptReservedInstancesExchangeQuote",
+		"ec2:CancelReservedInstancesListing",
+		"ec2:CreateReservedInstancesListing",
+		"ec2:ModifyReservedInstances",
+		"ec2:PurchaseReservedInstancesOffering",		
+]
+
+# get all IAM policy resources from the tfplan
+all_policy_resources = func() {
+    policies = []
+    for tfplan.module_paths as path {
+        resources = values(tfplan.module(path).resources.aws_iam_policy) else []
+        for resources as _, r {
+            policies += values(r)
+        }
+    }
+	
+    for tfplan.module_paths as path {
+        resources = values(tfplan.module(path).resources.aws_iam_user_policy) else []
+        for resources as _, r {
+            policies += values(r)
+        }
+    }
+	
+    for tfplan.module_paths as path {
+        resources = values(tfplan.module(path).resources.aws_iam_group_policy) else []
+        for resources as _, r {
+            policies += values(r)
+        }
+    }
+	
+    for tfplan.module_paths as path {
+        resources = values(tfplan.module(path).resources.aws_iam_role_policy) else []
+        for resources as _, r {
+            policies += values(r)
+        }
+    }
+#	print("------ all_policy_resources[]: ",policies)
+    return policies
+}
+
+# get all IAM Policy statements
+policy_statements = func() {
+    statements = []
+    for all_policy_resources() as r {
+    	statements += [{"name":"","user":"","group":"","role":"","jsoncode":""}]
+	    statements[-1]["name"]=r.applied.name
+	    statements[-1]["user"]=r.applied.user
+	    statements[-1]["group"]=r.applied.group
+	    statements[-1]["role"]=r.applied.role
+	    statements[-1]["jsoncode"]=	json.unmarshal(r.applied.policy).Statement
+    }
+#	print("\n--statements:",statements)
+    return statements
+}
+
+valid_statement = func(s,a) {
+#    print("\n--typeof s: ", types.type_of(s)," valueOf s:",s)
+
+#Requires an existence of permission string to be found
+#    if s["jsoncode"][0]["Action"] else [] contains a {
+
+# Requires 'exact' permission string to be found 
+     if s["jsoncode"][0]["Action"] else [] is a {
+	  print("\n------ Warnings(violations): Forbidden Permissions--",a,"--- found in PolicyName:", s["name"]," Action Block:", s["jsoncode"][0]["Action"] )
+	  violations_found+=1
+    }
+  return true
+}
+ 
+violation_count_is_zero = rule { violations_found == 0 }
+ 
+# Main rule that requires other rules to be true
+main = rule {
+    all policy_statements() as s {
+        all forbidden_actions as a {
+            valid_statement(s, a)
+        }
+    } and violation_count_is_zero
+}
