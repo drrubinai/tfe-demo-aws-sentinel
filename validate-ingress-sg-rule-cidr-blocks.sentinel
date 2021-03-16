@@ -9,11 +9,14 @@ import "tfplan/v2" as tfplan
 # with alias "plan"
 import "tfplan-functions" as plan
 
+split_marker_for_python = "%"
+
 # VALID CIDRs
 # Include "null" to forbid missing or computed values
 valid_cidrs = [ 
-"85.223.209.0/24",
-"127.0.0.1/29",
+"127.0.0.1/32",
+"118.69.140.29",
+"118.69.140.30",
 ]
 
 # Get all Security Group Ingress Rules
@@ -44,13 +47,16 @@ for allSGs as address, sg {
   # Print violation messages
   if length(violatingIRs["messages"]) > 0 {
     violatingSGsCount += 1
-    print("\n###SG Ingress Violation###:", address, "has at least one ingress rule",
+	print(split_marker_for_python)
+    print("###SG Ingress Violation###:", address, "has at least one ingress rule",
           "with forbidden cidr blocks")
-    plan.print_violations(violatingIRs["messages"], "Ingress Rule\n")
+    plan.print_violations(violatingIRs["messages"], " ")
+
   }   // end if
 
   if length(violatingIRs["messages"]) is 0 {
-    print("\n****SG Verified****:", address, "**NO** ingress rule","violations")
+  	print(split_marker_for_python)
+    print("****SG Verified****:", address, "**NO** ingress rule","violations")
   }
 
 } // end for SGs
