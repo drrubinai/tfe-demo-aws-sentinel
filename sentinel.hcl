@@ -5,7 +5,7 @@ module "tfplan-functions" {
 
 
 policy "validate-ingress-sg-rule-cidr-blocks" {
-    enforcement_level = "hard-mandatory"
+    enforcement_level = "soft-mandatory"
 }
 
 policy "restrict-iam-policy-statement2" {
