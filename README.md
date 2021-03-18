@@ -28,7 +28,7 @@ Sentinel Policies are rules which are enforced on Terraform runs to validate tha
 
 ## Main Configuration Points
 
-### Writing Sentinel Policies - HCL
+### Writing Sentinel Policies - Sentinel Language
 Sentinel policies themselves are defined in individual files (one per policy) in the same directory as the sentinel.hcl file. These files must match the name of the policy from the configuration file and carry the .sentinel suffix. 
 ```bash  - USING ctc repos - configured in local chart files
 import "time"
